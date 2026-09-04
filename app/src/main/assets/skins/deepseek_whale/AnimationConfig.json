@@ -1,0 +1,21 @@
+{
+  "skin": "deepseek_whale",
+  "states": {
+    "idle": {
+      "frames": ["idle/idle_01.png", "idle/idle_02.png"],
+      "fps": 2
+    },
+    "happy": {
+      "frames": ["emotion/happy.png"],
+      "fps": 1
+    },
+    "sleep": {
+      "frames": ["action/sleep.png"],
+      "fps": 1
+    },
+    "drag": {
+      "frames": ["action/drag.png"],
+      "fps": 1
+    }
+  }
+}
