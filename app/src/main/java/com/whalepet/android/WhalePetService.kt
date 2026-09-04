@@ -1,8 +1,5 @@
 package com.whalepet.android
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -21,7 +19,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
-import android.view.animation.DecelerateInterpolator
 import kotlin.math.abs
 
 class WhalePetService : Service() {
@@ -32,7 +29,6 @@ class WhalePetService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var overlayAdded = false
-    private var snapAnimator: ValueAnimator? = null
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, MODE_PRIVATE) }
 
     private val sleepRunnable = Runnable {
@@ -145,7 +141,6 @@ class WhalePetService : Service() {
 
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        snapAnimator?.cancel()
                         downRawX = event.rawX
                         downRawY = event.rawY
                         startX = params.x
@@ -183,7 +178,7 @@ class WhalePetService : Service() {
                     MotionEvent.ACTION_UP -> {
                         if (moved) {
                             petView.setDragging(false)
-                            snapToNearestEdge(petSize)
+                            forceSnapToNearestEdge(petSize)
                         }
                         scheduleSleep()
                         return true
@@ -192,7 +187,7 @@ class WhalePetService : Service() {
                     MotionEvent.ACTION_CANCEL -> {
                         if (moved) {
                             petView.setDragging(false)
-                            snapToNearestEdge(petSize)
+                            forceSnapToNearestEdge(petSize)
                         }
                         scheduleSleep()
                         return true
@@ -204,38 +199,34 @@ class WhalePetService : Service() {
         })
     }
 
-    private fun snapToNearestEdge(petSize: Int) {
+    /**
+     * OEM overlay implementations (notably some gaming-phone ROMs) may ignore
+     * a sequence of animated updateViewLayout() calls after ACTION_UP.
+     * Edge snap therefore commits the final WindowManager coordinates first,
+     * then posts one extra layout update after the touch dispatch has finished.
+     */
+    private fun forceSnapToNearestEdge(petSize: Int) {
         if (!overlayAdded) return
 
         val (screenWidth, screenHeight) = screenSize()
-        params.y = params.y.coerceIn(0, (screenHeight - petSize).coerceAtLeast(0))
+        val maxX = (screenWidth - petSize).coerceAtLeast(0)
+        val maxY = (screenHeight - petSize).coerceAtLeast(0)
 
-        val targetX = if (params.x + petSize / 2 < screenWidth / 2) {
-            0
-        } else {
-            (screenWidth - petSize).coerceAtLeast(0)
-        }
+        params.y = params.y.coerceIn(0, maxY)
+        params.x = if (params.x + petSize / 2 < screenWidth / 2) 0 else maxX
 
-        val startX = params.x
-        if (startX == targetX) {
+        // First commit immediately while we still own the drag gesture.
+        updateOverlay()
+        savePosition()
+
+        // Some OEM WindowManager implementations only honor the final update
+        // once the ACTION_UP dispatch has completely returned.
+        petView.post {
+            if (!overlayAdded) return@post
+            params.x = params.x.coerceIn(0, maxX)
+            params.y = params.y.coerceIn(0, maxY)
+            updateOverlay()
             savePosition()
-            return
-        }
-
-        snapAnimator?.cancel()
-        snapAnimator = ValueAnimator.ofInt(startX, targetX).apply {
-            duration = 180L
-            interpolator = DecelerateInterpolator()
-            addUpdateListener {
-                params.x = it.animatedValue as Int
-                updateOverlay()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    savePosition()
-                }
-            })
-            start()
         }
     }
 
@@ -261,8 +252,13 @@ class WhalePetService : Service() {
     }
 
     private fun screenSize(): Pair<Int, Int> {
-        val metrics = resources.displayMetrics
-        return metrics.widthPixels to metrics.heightPixels
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = windowManager.currentWindowMetrics.bounds
+            bounds.width() to bounds.height()
+        } else {
+            val metrics = resources.displayMetrics
+            metrics.widthPixels to metrics.heightPixels
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -274,7 +270,7 @@ class WhalePetService : Service() {
         params.x = params.x.coerceIn(0, (screenWidth - petSize).coerceAtLeast(0))
         params.y = params.y.coerceIn(0, (screenHeight - petSize).coerceAtLeast(0))
         updateOverlay()
-        snapToNearestEdge(petSize)
+        forceSnapToNearestEdge(petSize)
     }
 
     private fun createNotificationChannel() {
@@ -325,7 +321,6 @@ class WhalePetService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        snapAnimator?.cancel()
 
         if (overlayAdded) {
             savePosition()
