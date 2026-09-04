@@ -1,5 +1,6 @@
 android {
     namespace "com.whalepet.android"
+
     compileSdk 35
 
     defaultConfig {
