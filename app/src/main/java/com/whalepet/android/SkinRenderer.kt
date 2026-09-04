@@ -10,13 +10,22 @@ class SkinRenderer(private val context: Context) {
         skinId: String,
         state: String = "idle"
     ): Bitmap? {
-        val path = "skins/$skinId/$state.png"
-        return try {
-            context.assets.open(path).use {
-                BitmapFactory.decodeStream(it)
+        val candidates = listOf(
+            "skins/$skinId/$state.png",
+            "skins/$skinId/$state/$state.png",
+            "skins/$skinId/$state.webp",
+            "skins/$skinId/$state/$state.webp"
+        )
+
+        for (path in candidates) {
+            try {
+                return context.assets.open(path).use {
+                    BitmapFactory.decodeStream(it)
+                }
+            } catch (_: Exception) {
             }
-        } catch (_: Exception) {
-            null
         }
+
+        return null
     }
 }
