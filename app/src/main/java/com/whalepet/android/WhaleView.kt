@@ -15,13 +15,22 @@ class WhaleView(context: Context) : View(context) {
 
     private var sleeping = false
     private var dragging = false
+    private var eating = false
     private var bubbleText: String? = "本小姐登场。"
 
     private val hideBubbleRunnable = Runnable {
-        if (!sleeping && !dragging) {
+        if (!sleeping && !dragging && !eating) {
             bubbleText = null
             invalidate()
         }
+    }
+
+    private val stopEatingRunnable = Runnable {
+        eating = false
+        if (!sleeping && !dragging) {
+            bubbleText = null
+        }
+        invalidate()
     }
 
     private val tapLines = listOf(
@@ -47,12 +56,16 @@ class WhaleView(context: Context) : View(context) {
 
         drawBubble(canvas, w, h)
         drawWhale(canvas, w, h)
+        if (eating) {
+            drawRiceBowl(canvas, w, h)
+        }
     }
 
     private fun drawBubble(canvas: Canvas, w: Float, h: Float) {
         val text = when {
             dragging -> "哎哎哎！别拎我！"
             sleeping -> "DeepSleep..."
+            eating -> "白饭！🍚"
             else -> bubbleText
         } ?: return
 
@@ -103,7 +116,6 @@ class WhaleView(context: Context) : View(context) {
         canvas.drawOval(body, paint)
         paint.clearShadowLayer()
 
-        // Tail.
         path.reset()
         path.moveTo(w * 0.76f, h * 0.55f)
         path.cubicTo(w * 0.90f, h * 0.47f, w * 0.94f, h * 0.42f, w * 0.96f, h * 0.35f)
@@ -113,7 +125,6 @@ class WhaleView(context: Context) : View(context) {
         path.close()
         canvas.drawPath(path, paint)
 
-        // Belly.
         paint.color = Color.rgb(205, 231, 255)
         val belly = RectF(
             w * 0.30f,
@@ -123,7 +134,6 @@ class WhaleView(context: Context) : View(context) {
         )
         canvas.drawOval(belly, paint)
 
-        // Side fin.
         paint.color = if (sleeping) Color.rgb(73, 103, 145) else Color.rgb(52, 116, 207)
         path.reset()
         path.moveTo(w * 0.31f, h * 0.63f)
@@ -132,7 +142,6 @@ class WhaleView(context: Context) : View(context) {
         path.close()
         canvas.drawPath(path, paint)
 
-        // Tiny water spout / ahoge.
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = w * 0.022f
         paint.strokeCap = Paint.Cap.ROUND
@@ -145,7 +154,6 @@ class WhaleView(context: Context) : View(context) {
         canvas.drawPath(path, paint)
         paint.style = Paint.Style.FILL
 
-        // Eye / sleeping eye.
         if (sleeping) {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = w * 0.017f
@@ -169,7 +177,6 @@ class WhaleView(context: Context) : View(context) {
             canvas.drawCircle(w * 0.455f, h * 0.562f, w * 0.009f, paint)
         }
 
-        // Mouth.
         paint.color = Color.rgb(24, 67, 112)
         paint.strokeWidth = w * 0.014f
         paint.style = Paint.Style.STROKE
@@ -177,10 +184,27 @@ class WhaleView(context: Context) : View(context) {
         canvas.drawArc(mouth, 15f, 145f, false, paint)
         paint.style = Paint.Style.FILL
 
-        // White whale mark.
         paint.color = Color.WHITE
         canvas.drawCircle(w * 0.64f, h * 0.50f, w * 0.025f, paint)
         canvas.drawOval(RectF(w * 0.65f, h * 0.48f, w * 0.72f, h * 0.52f), paint)
+    }
+
+    private fun drawRiceBowl(canvas: Canvas, w: Float, h: Float) {
+        val bowl = RectF(w * 0.48f, h * 0.76f, w * 0.84f, h * 0.94f)
+        val rice = RectF(w * 0.50f, h * 0.72f, w * 0.82f, h * 0.86f)
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.WHITE
+        canvas.drawOval(rice, paint)
+
+        paint.color = Color.rgb(86, 157, 230)
+        canvas.drawArc(bowl, 0f, 180f, true, paint)
+
+        paint.color = Color.rgb(34, 85, 145)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = w * 0.012f
+        canvas.drawArc(bowl, 0f, 180f, true, paint)
+        paint.style = Paint.Style.FILL
     }
 
     override fun performClick(): Boolean {
@@ -191,15 +215,37 @@ class WhaleView(context: Context) : View(context) {
 
     fun onTapped() {
         wakeUp()
+        eating = false
+        removeCallbacks(stopEatingRunnable)
         removeCallbacks(hideBubbleRunnable)
         bubbleText = tapLines.random()
         invalidate()
         postDelayed(hideBubbleRunnable, 2400L)
     }
 
+    fun feedRice() {
+        wakeUp()
+        eating = true
+        removeCallbacks(hideBubbleRunnable)
+        removeCallbacks(stopEatingRunnable)
+        bubbleText = "白饭！🍚"
+        invalidate()
+        postDelayed(stopEatingRunnable, 1600L)
+    }
+
+    fun toggleSleep() {
+        if (sleeping) {
+            wakeUp()
+        } else {
+            setSleeping(true)
+        }
+    }
+
     fun setSleeping(value: Boolean) {
         sleeping = value
         if (value) {
+            eating = false
+            removeCallbacks(stopEatingRunnable)
             removeCallbacks(hideBubbleRunnable)
             bubbleText = null
         }
@@ -220,6 +266,8 @@ class WhaleView(context: Context) : View(context) {
         dragging = value
         if (value) {
             wakeUp()
+            eating = false
+            removeCallbacks(stopEatingRunnable)
             removeCallbacks(hideBubbleRunnable)
         } else if (!sleeping) {
             bubbleText = "放这儿就行。"
@@ -231,6 +279,7 @@ class WhaleView(context: Context) : View(context) {
 
     override fun onDetachedFromWindow() {
         removeCallbacks(hideBubbleRunnable)
+        removeCallbacks(stopEatingRunnable)
         super.onDetachedFromWindow()
     }
 }
