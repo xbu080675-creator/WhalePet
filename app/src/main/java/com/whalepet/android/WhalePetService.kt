@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
+import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -108,6 +109,30 @@ class WhalePetService : Service() {
     private fun installTouchHandler(petSize: Int) {
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
 
+        val gestureDetector = GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(e: MotionEvent): Boolean = true
+
+                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    petView.performClick()
+                    scheduleSleep()
+                    return true
+                }
+
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    petView.feedRice()
+                    scheduleSleep()
+                    return true
+                }
+
+                override fun onLongPress(e: MotionEvent) {
+                    petView.toggleSleep()
+                    scheduleSleep()
+                }
+            }
+        )
+
         petView.setOnTouchListener(object : View.OnTouchListener {
             var downRawX = 0f
             var downRawY = 0f
@@ -116,6 +141,8 @@ class WhalePetService : Service() {
             var moved = false
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
+                gestureDetector.onTouchEvent(event)
+
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         snapAnimator?.cancel()
@@ -157,8 +184,6 @@ class WhalePetService : Service() {
                         if (moved) {
                             petView.setDragging(false)
                             snapToNearestEdge(petSize)
-                        } else {
-                            petView.performClick()
                         }
                         scheduleSleep()
                         return true
@@ -174,7 +199,7 @@ class WhalePetService : Service() {
                     }
                 }
 
-                return false
+                return true
             }
         })
     }
@@ -224,7 +249,6 @@ class WhalePetService : Service() {
         try {
             windowManager.updateViewLayout(petView, params)
         } catch (_: IllegalArgumentException) {
-            // The overlay may already have been removed while the service stops.
         }
     }
 
@@ -284,7 +308,7 @@ class WhalePetService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentTitle("蓝色大肥鱼正在摸鱼")
-            .setContentText("拖动她会自动吸边，60 秒不理她就会 DeepSleep")
+            .setContentText("单击逗她，双击喂白饭，长按 DeepSleep，拖动自动吸边")
             .setContentIntent(openAppIntent)
             .addAction(
                 Notification.Action.Builder(
@@ -308,7 +332,6 @@ class WhalePetService : Service() {
             try {
                 windowManager.removeView(petView)
             } catch (_: IllegalArgumentException) {
-                // Already removed.
             }
             overlayAdded = false
         }
