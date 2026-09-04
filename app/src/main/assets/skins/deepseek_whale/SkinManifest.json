@@ -1,0 +1,26 @@
+{
+  "id": "deepseek_whale",
+  "name": "DeepSeek Whale",
+  "version": "1.0.0",
+  "type": "mixed-asset-skin",
+  "description": "DeepSeek whale girl skin package for WhalePet",
+  "assets": {
+    "idle": "idle/idle.png",
+    "happy": "emotion/happy.png",
+    "sleep": "action/sleep.png",
+    "drag": "action/drag.png"
+  },
+  "license": {
+    "application": "MIT",
+    "skinAssets": [
+      {
+        "name": "animation_assets",
+        "licenseFile": "LICENSES/asset-license-a.txt"
+      },
+      {
+        "name": "illustration_assets",
+        "licenseFile": "LICENSES/asset-license-b.txt"
+      }
+    ]
+  }
+}
