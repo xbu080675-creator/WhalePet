@@ -1,40 +1,94 @@
 package com.whalepet.android
 
 import android.app.Activity
-import android.os.Bundle
 import android.content.Intent
-import android.provider.Settings
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.TextView
 
-class MainActivity: Activity(){
+class MainActivity : Activity() {
+
+    private var startAfterPermission = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val button = Button(this)
-        button.text="召唤蓝色大肥鱼"
+        val title = TextView(this).apply {
+            text = "WhalePet M0.2\n蓝色大肥鱼"
+            textSize = 24f
+            gravity = Gravity.CENTER
+        }
 
-        button.setOnClickListener {
+        val hint = TextView(this).apply {
+            text = "M0.2：拖动、自动吸边、60 秒 DeepSleep、前台保活。\n本阶段仍使用代码绘制占位鲸鱼。"
+            textSize = 15f
+            gravity = Gravity.CENTER
+        }
 
-            if(!Settings.canDrawOverlays(this)){
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                )
-            }else{
-                startService(
-                    Intent(this,WhalePetService::class.java)
-                )
+        val startButton = Button(this).apply {
+            text = "召唤蓝色大肥鱼"
+            setOnClickListener { ensureOverlayPermissionAndStart() }
+        }
+
+        val stopButton = Button(this).apply {
+            text = "让大肥鱼回窝"
+            setOnClickListener {
+                stopService(Intent(this@MainActivity, WhalePetService::class.java))
             }
         }
 
-        val layout=LinearLayout(this)
-        layout.addView(button)
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            addView(title)
+            addView(hint)
+            addView(startButton)
+            addView(stopButton)
+        }
 
         setContentView(layout)
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (startAfterPermission && Settings.canDrawOverlays(this)) {
+            startAfterPermission = false
+            startPetService()
+        }
+    }
+
+    private fun ensureOverlayPermissionAndStart() {
+        if (Settings.canDrawOverlays(this)) {
+            startPetService()
+            return
+        }
+
+        startAfterPermission = true
+        startActivity(
+            Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+        )
+    }
+
+    private fun startPetService() {
+        val intent = Intent(this, WhalePetService::class.java)
+            .setAction(WhalePetService.ACTION_START)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 }
