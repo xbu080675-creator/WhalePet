@@ -19,13 +19,13 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         val title = TextView(this).apply {
-            text = "WhalePet M0.2\n蓝色大肥鱼"
+            text = "WhalePet M0.3\n蓝色大肥鱼"
             textSize = 24f
             gravity = Gravity.CENTER
         }
 
         val hint = TextView(this).apply {
-            text = "M0.2：拖动、自动吸边、60 秒 DeepSleep、前台保活。\n本阶段仍使用代码绘制占位鲸鱼。"
+            text = "单击逗她，双击喂白饭，长按切换 DeepSleep。\n拖动松手自动吸边，60 秒没人理她也会睡着。"
             textSize = 15f
             gravity = Gravity.CENTER
         }
