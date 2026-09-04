@@ -6,7 +6,7 @@ import android.content.Context
  * 桌宠皮肤管理器
  *
  * 当前版本先提供基础框架，默认皮肤继续使用代码绘制。
- * 后续接入 assets/skins/* 图片资源。
+ * 后续接入 assets/skins 图片资源。
  */
 object PetSkinManager {
 
